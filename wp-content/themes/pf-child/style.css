@@ -1,0 +1,20 @@
+/*
+ Theme Name: PF Child
+ Template: twentytwentyfour
+ Version: 1.0
+*/
+
+/* jen vizuální důkaz, že běží child theme */
+body::before{
+  content: "DEV – PF CHILD THEME";
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 9999;
+  background:#111;
+  color:#fff;
+  font: 12px/1.6 system-ui, sans-serif;
+  padding: 4px 8px;
+  border-radius: 6px;
+  opacity: .85;
+}

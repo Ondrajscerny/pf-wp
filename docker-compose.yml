@@ -1,0 +1,68 @@
+﻿version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      # používáme ROOT heslo z .env, jinak healthcheck selže
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p${MYSQL_ROOT_PASSWORD} || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  wordpress:
+    image: wordpress:6.6-php8.2-apache
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+      WORDPRESS_TABLE_PREFIX: ${WORDPRESS_TABLE_PREFIX}
+    volumes:
+      # 🔧 Binduj jen to, co upravuješ = child theme:
+      - ./wp-content/themes/pf-child:/var/www/html/wp-content/themes/pf-child
+
+      # 📦 Rychlé Docker volumes pro velké a často zapisované složky:
+      - uploads:/var/www/html/wp-content/uploads
+      - cache:/var/www/html/wp-content/cache
+
+      # 🧠 Vlastní PHP nastavení (opcache, limity):
+      - ./docker/php.ini:/usr/local/etc/php/conf.d/z-dev.ini:ro
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
+
+volumes:
+  db_data:
+    external: true
+    name: pf-wp_db_data   # ← přesně takhle, podle výpisu
+  uploads:
+  cache:
+
+

@@ -1,0 +1,42 @@
+﻿# =========================
+# Kořen repozitáře
+# =========================
+# Ignoruj všechno v kořeni by default
+/*
+
+# Ale PONECH tyto infra soubory a složky ve verzování:
+!.gitignore
+!README.md
+!docker-compose.yml
+!docker/
+!docker/php.ini
+!.env.example
+
+# =========================
+# WordPress / wp-content
+# =========================
+# Ignoruj celé wp-content
+/wp-content/*
+
+# Povol složku themes (potřebujeme k ní dojít)
+/wp-content/themes/*
+!/wp-content/themes/
+
+# Povol NÁŠ child theme
+!/wp-content/themes/pf-child/
+!/wp-content/themes/pf-child/**
+
+# Uploads a cache NIKDY necommitovat
+/wp-content/uploads/
+/wp-content/cache/
+
+# =========================
+# Obecné zbytečnosti
+# =========================
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+node_modules/
+
+
