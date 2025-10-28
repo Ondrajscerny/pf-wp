@@ -1,0 +1,47 @@
+name: Deploy pf-child to production (FTPS)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'wp-content/themes/pf-child/**'
+      - '.github/workflows/deploy.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Upload only pf-child via FTPS
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_PORT: ${{ secrets.FTP_PORT }}
+          FTP_TARGET: ${{ secrets.FTP_TARGET }}
+        run: |
+          # Bezpečnější FTPS (explicit TLS), vypneme verify cert u sdíleného hostingu
+          lftp -e "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate no;
+            set net:timeout 30;
+            set net:max-retries 2;
+            open -u ${FTP_USER},${FTP_PASS} -p ${FTP_PORT:-21} ${FTP_HOST};
+            # mirror -R = upload (reverse), only-newer = jen novější soubory
+            mirror -R \
+              --only-newer \
+              --verbose \
+              --parallel=2 \
+              --exclude-glob .git* \
+              --exclude-glob node_modules \
+              --exclude-glob '*.map' \
+              wp-content/themes/pf-child ${FTP_TARGET};
+            bye
+          "
