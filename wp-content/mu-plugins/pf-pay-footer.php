@@ -11,11 +11,14 @@ add_action('wp_footer', function () {
     $base_url = trailingslashit( plugin_dir_url(__FILE__) . 'pf-pay-footer-assets' );
 
     $logos = [
-        ['file' => 'edenred.png', 'alt' => 'Edenred'],     // už máš PNG
-        ['file' => 'up.svg',      'alt' => 'Up eBenefity'],// přidáš soubor
-        ['file' => 'comgate.svg', 'alt' => 'ComGate'],
-        ['file' => 'visa.svg',    'alt' => 'VISA'],
-        ['file' => 'mastercard.svg', 'alt' => 'Mastercard'],
+ $logos = [
+    ['file' => 'edenred.png',  'alt' => 'Edenred'],
+    ['file' => 'up.png',       'alt' => 'Up eBenefity'],
+    ['file' => 'comgate.svg',  'alt' => 'ComGate'],
+    ['file' => 'visa.svg',     'alt' => 'VISA'],
+    ['file' => 'mastercard.svg','alt' => 'Mastercard'],
+];
+
     ];
     ?>
     <div class="pf-pay-footer" style="margin:24px 0 12px; text-align:center; font-size:14px; line-height:1.45;">
