@@ -1,3 +1,22 @@
+name: Deploy to WEDOS via FTPS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
       - name: Sync wp-content to WEDOS (FTPS)
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
@@ -18,7 +37,7 @@
             open -u ${FTP_USER},${FTP_PASS} ${FTP_HOST};
             cd ${REMOTE_DIR};
 
-            # Nahrajeme jen místní 'wp-content' do vzdáleného 'wp-content'
+            # Nahraj jen lokální 'wp-content' do vzdáleného 'wp-content'
             mirror -R \
               --parallel=3 \
               --only-newer \
