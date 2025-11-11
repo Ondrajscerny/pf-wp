@@ -1,13 +1,23 @@
 name: Deploy to WEDOS via FTPS
 
 on:
+  # manuální spuštění v Actions
+  workflow_dispatch:
+  # (volitelné) auto-deploy při pushi do main na relevantní cesty
   push:
     branches: [ main ]
-  workflow_dispatch: {}
+    paths:
+      - 'wp-content/**'
+      - '.github/workflows/deploy.yml'
+
+concurrency:
+  group: deploy-wedos
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -15,7 +25,9 @@ jobs:
           fetch-depth: 1
 
       - name: Install lftp
-        run: sudo apt-get update && sudo apt-get install -y lftp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
 
       - name: Sync wp-content to WEDOS (FTPS)
         env:
@@ -29,6 +41,7 @@ jobs:
             set net:timeout 25;
             set net:max-retries 2;
             set net:reconnect-interval-base 5;
+            set ftp:ssl-allow true;
             set ftp:ssl-force true;
             set ftp:ssl-protect-data true;
             set ftp:passive-mode true;
@@ -37,7 +50,7 @@ jobs:
             open -u ${FTP_USER},${FTP_PASS} ${FTP_HOST};
             cd ${REMOTE_DIR};
 
-            # Nahraj jen lokální 'wp-content' do vzdáleného 'wp-content'
+            # 1) standardní deploy celého wp-content (bez .git a .github)
             mirror -R \
               --parallel=3 \
               --only-newer \
@@ -46,5 +59,13 @@ jobs:
               --exclude .github/ \
               ./wp-content ./;
 
+            # 2) jistota: explicitně přepošli mu-plugins (kde je pf-pay-footer)
+            mirror -R \
+              --parallel=3 \
+              --only-newer \
+              ./wp-content/mu-plugins ./mu-plugins;
+
+            # kontrolní výpis na závěr
+            ls -la ./mu-plugins;
             bye
           "
