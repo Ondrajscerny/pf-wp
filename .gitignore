@@ -1,45 +1,70 @@
 ﻿# =========================
 # Kořen repozitáře
 # =========================
-# Ignoruj všechno v kořeni by default
+
+# Ignoruj vše v kořeni by default
 /*
 
-# Ale PONECH tyto infra soubory a složky ve verzování:
+# Ponech INFRA / repo soubory
 !.gitignore
 !README.md
+!.env.example
 !docker-compose.yml
 !docker/
 !docker/php.ini
-!.env.example
+!.github/
+!.github/workflows/
+!.github/workflows/*
+
+# Lokální .env nikdy necommitovat
+/.env
 
 # =========================
 # WordPress / wp-content
 # =========================
-# Ignoruj celé wp-content
+
+# Defaultně ignoruj celé wp-content
 /wp-content/*
 
-# Povol složku themes (potřebujeme k ní dojít)
-/wp-content/themes/*
+# Povol přístup do podsložek, ale jejich obsah znovu ignoruj
 !/wp-content/themes/
+!/wp-content/plugins/
+!/wp-content/mu-plugins/
 
-# Povol NÁŠ child theme
+# Themes: ignoruj vše kromě našeho child theme
+/wp-content/themes/*
 !/wp-content/themes/pf-child/
 !/wp-content/themes/pf-child/**
 
-# Uploads a cache NIKDY necommitovat
+# Plugins: ignoruj vše kromě našich vlastních pluginů
+/wp-content/plugins/*
+!/wp-content/plugins/pf-muzapay-gateway/
+!/wp-content/plugins/pf-muzapay-gateway/**
+
+# (volitelné) pokud používáš i callback stub, nech povolený také:
+!/wp-content/plugins/pf-muzapay-callback-stub/
+!/wp-content/plugins/pf-muzapay-callback-stub/**
+
+# MU-plugins: defaultně ignoruj — whitelisty přidej jen pokud bude potřeba
+/wp-content/mu-plugins/*
+
+# Uploady a cache nikdy netrackovat
 /wp-content/uploads/
+#/wp-content/uploads/**   # není nutné, složka je už ignorovaná
 /wp-content/cache/
 
 # =========================
 # Obecné zbytečnosti
 # =========================
+# OS / editory
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+
+# Logy / dočasné soubory / archivy
 *.log
 *.tmp
+*.zip
 node_modules/
-# --- allow MU plugins to be tracked ---
-!wp-content/mu-plugins/
-!wp-content/mu-plugins/**
-
-
+vendor/

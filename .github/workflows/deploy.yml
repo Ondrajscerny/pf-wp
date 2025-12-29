@@ -1,23 +1,52 @@
 name: Deploy to WEDOS via FTPS
 
 on:
-  # manuální spuštění v Actions
-  workflow_dispatch:
-  # (volitelné) auto-deploy při pushi do main na relevantní cesty
+  # Auto-deploy jen když do main přistanou relevantní cesty
   push:
     branches: [ main ]
     paths:
-      - 'wp-content/**'
+      - 'wp-content/themes/pf-child/**'
+      - 'wp-content/plugins/pf-muzapay-gateway/**'
       - '.github/workflows/deploy.yml'
+  # PR kontrola – rychlá syntaktická kontrola PHP, bez nasazení
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'wp-content/themes/pf-child/**'
+      - 'wp-content/plugins/pf-muzapay-gateway/**'
+      - '.github/workflows/deploy.yml'
+  # Ruční spuštění kdykoli
+  workflow_dispatch: {}
 
+# Když přijde nový run, ten předchozí (pokud běží) zruš
 concurrency:
   group: deploy-wedos
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  # --- PR CHECK (bez deploye) ---
+  pr-check:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
+      - name: PHP syntax check (pf-child + gateway)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y php-cli
+          # lint theme
+          find wp-content/themes/pf-child -type f -name "*.php" -print0 | xargs -0 -n1 php -l
+          # lint plugin
+          find wp-content/plugins/pf-muzapay-gateway -type f -name "*.php" -print0 | xargs -0 -n1 php -l
+
+  # --- DEPLOY (jen push do main) ---
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,43 +58,94 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y lftp
 
-      - name: Sync wp-content to WEDOS (FTPS)
+      # ====== Theme: pf-child ======
+      - name: Upload theme (pf-child) via FTPS
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASS }}
-          REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}   # /www/domains/privatefitness.eu/wp-content
+          FTP_PORT: ${{ secrets.FTP_PORT }}           # volitelné (jinak 21)
+          REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}   # např. /domains/privatefitness.eu/public_html
         run: |
-          set -xe
           lftp -e "
-            set net:timeout 25;
-            set net:max-retries 2;
-            set net:reconnect-interval-base 5;
-            set ftp:ssl-allow true;
             set ftp:ssl-force true;
             set ftp:ssl-protect-data true;
-            set ftp:passive-mode true;
             set ssl:verify-certificate no;
 
-            open -u ${FTP_USER},${FTP_PASS} ${FTP_HOST};
-            cd ${REMOTE_DIR};
+            set net:timeout 30;
+            set net:max-retries 2;
+            set net:persist-retries 2;
 
-            # 1) standardní deploy celého wp-content (bez .git a .github)
+            open -u ${FTP_USER},${FTP_PASS} -p ${FTP_PORT:-21} ${FTP_HOST};
+            mkdir -p ${REMOTE_DIR:-.}/wp-content/themes/pf-child;
             mirror -R \
-              --parallel=3 \
               --only-newer \
-              --delete \
-              --exclude-glob .git/ \
-              --exclude .github/ \
-              ./wp-content ./;
-
-            # 2) jistota: explicitně přepošli mu-plugins (kde je pf-pay-footer)
-            mirror -R \
+              --verbose \
               --parallel=3 \
-              --only-newer \
-              ./wp-content/mu-plugins ./mu-plugins;
-
-            # kontrolní výpis na závěr
-            ls -la ./mu-plugins;
+              --exclude-glob '.git*' \
+              --exclude-glob 'node_modules' \
+              wp-content/themes/pf-child ${REMOTE_DIR:-.}/wp-content/themes/pf-child;
             bye
           "
+
+      # ====== Plugin: pf-muzapay-gateway ======
+      - name: Upload plugin (pf-muzapay-gateway) via FTPS
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_PORT: ${{ secrets.FTP_PORT }}
+          REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}
+        run: |
+          lftp -e "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate no;
+
+            set net:timeout 30;
+            set net:max-retries 2;
+            set net:persist-retries 2;
+
+            open -u ${FTP_USER},${FTP_PASS} -p ${FTP_PORT:-21} ${FTP_HOST};
+            mkdir -p ${REMOTE_DIR:-.}/wp-content/plugins/pf-muzapay-gateway;
+            mirror -R \
+              --only-newer \
+              --verbose \
+              --parallel=3 \
+              --exclude-glob '.git*' \
+              --exclude-glob 'node_modules' \
+              wp-content/plugins/pf-muzapay-gateway ${REMOTE_DIR:-.}/wp-content/plugins/pf-muzapay-gateway;
+            bye
+          "
+
+      # (Volitelné) explicitně přepošli MU plugins (kvůli pf-pay-footer apod.)
+      - name: Ensure mu-plugins are in sync (optional)
+        if: always()
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+          FTP_PORT: ${{ secrets.FTP_PORT }}
+          REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}
+        run: |
+          if [ -d "wp-content/mu-plugins" ]; then
+            lftp -e "
+              set ftp:ssl-force true;
+              set ftp:ssl-protect-data true;
+              set ssl:verify-certificate no;
+
+              set net:timeout 30;
+              set net:max-retries 2;
+              set net:persist-retries 2;
+
+              open -u ${FTP_USER},${FTP_PASS} -p ${FTP_PORT:-21} ${FTP_HOST};
+              mkdir -p ${REMOTE_DIR:-.}/wp-content/mu-plugins;
+              mirror -R \
+                --only-newer \
+                --verbose \
+                --parallel=2 \
+                --exclude-glob '.git*' \
+                wp-content/mu-plugins ${REMOTE_DIR:-.}/wp-content/mu-plugins;
+              bye
+            "
+          fi
