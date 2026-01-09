@@ -90,6 +90,7 @@ jobs:
 
       # ====== Plugin: pf-muzapay-gateway ======
       - name: Upload plugin (pf-muzapay-gateway) via FTPS
+        if: hashFiles('wp-content/plugins/pf-muzapay-gateway/**') != ''
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
