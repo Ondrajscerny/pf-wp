@@ -87,7 +87,7 @@ jobs:
             open -u ${FTP_USER},${FTP_PASS} -p ${FTP_PORT:-21} ${FTP_HOST};
             mkdir -p ${REMOTE_DIR:-.}/wp-content/plugins/pf-muzapay-gateway;
             mirror -R \
-              --only-newer \
+              --ignore-time \
               --verbose \
               --exclude-glob '.git*' \
               --exclude-glob 'node_modules' \
