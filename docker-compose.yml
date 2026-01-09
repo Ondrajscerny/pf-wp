@@ -1,4 +1,4 @@
-﻿version: "3.9"
+version: "3.9"
 
 services:
   db:
@@ -14,7 +14,7 @@ services:
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
-      # používáme ROOT heslo z .env, jinak healthcheck selže
+      # Use ROOT password from .env; otherwise healthcheck fails
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p${MYSQL_ROOT_PASSWORD} || exit 1"]
       interval: 5s
       timeout: 5s
@@ -34,15 +34,24 @@ services:
       WORDPRESS_DB_USER: ${MYSQL_USER}
       WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
       WORDPRESS_TABLE_PREFIX: ${WORDPRESS_TABLE_PREFIX}
+      MUZAPAY_MODE: ${MUZAPAY_MODE}
+      MUZAPAY_ESHOP_ID: ${MUZAPAY_ESHOP_ID}
+      MUZAPAY_PASSWORD: ${MUZAPAY_PASSWORD}
+      MUZAPAY_RETURN_URL: ${MUZAPAY_RETURN_URL}
+      MUZAPAY_NOTIFY_URL: ${MUZAPAY_NOTIFY_URL}
+      MUZAPAY_LANGUAGE: ${MUZAPAY_LANGUAGE}
+      MUZAPAY_PRODUCT_CODE: ${MUZAPAY_PRODUCT_CODE}
+      MUZAPAY_PRIVATE_KEY_PATH: ${MUZAPAY_PRIVATE_KEY_PATH}
+      MUZAPAY_COUNTRY: ${MUZAPAY_COUNTRY}
     volumes:
-      # 🔧 Binduj jen to, co upravuješ = child theme:
+      # Bind mounts for active theme and plugin we edit
       - ./wp-content/themes/pf-child:/var/www/html/wp-content/themes/pf-child
-
-      # 📦 Rychlé Docker volumes pro velké a často zapisované složky:
+      - ./wp-content/plugins/pf-muzapay-gateway:/var/www/html/wp-content/plugins/pf-muzapay-gateway
+      - ./wp-content/secrets:/var/www/html/wp-content/secrets:ro
+      # Fast volumes for uploads/cache
       - uploads:/var/www/html/wp-content/uploads
       - cache:/var/www/html/wp-content/cache
-
-      # 🧠 Vlastní PHP nastavení (opcache, limity):
+      # Custom PHP settings
       - ./docker/php.ini:/usr/local/etc/php/conf.d/z-dev.ini:ro
 
   phpmyadmin:
@@ -61,8 +70,6 @@ services:
 volumes:
   db_data:
     external: true
-    name: pf-wp_db_data   # ← přesně takhle, podle výpisu
+    name: pf-wp_db_data
   uploads:
   cache:
-
-
