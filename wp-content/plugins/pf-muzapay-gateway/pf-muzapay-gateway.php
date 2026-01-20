@@ -48,6 +48,7 @@ function pf_muzapay_gateway_init() {
             add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 
             add_action( 'woocommerce_api_pf_muzapay_return', array( $this, 'handle_return' ) );
+            add_action( 'woocommerce_api_pf_muzapay_notify', array( $this, 'handle_notify' ) );
             add_action( 'woocommerce_thankyou_' . $this->id, array( $this, 'poll_on_thankyou' ), 10, 1 );
             add_action( 'woocommerce_order_actions', array( $this, 'add_admin_action' ) );
             add_action( 'woocommerce_order_action_pf_muzapay_refresh', array( $this, 'handle_admin_action' ) );
@@ -231,6 +232,51 @@ function pf_muzapay_gateway_init() {
             }
 
             wp_safe_redirect( $this->get_return_url( $order ) );
+            exit;
+        }
+
+        /**
+         * NOTIFY endpoint hit server-to-server. Updated orders even pokud se uzivatel nevrati.
+         */
+        public function handle_notify() {
+            $cfg  = PF_MZ_Utils::cfg();
+            $data = wp_unslash( $_REQUEST );
+
+            PF_MZ_Utils::log( 'NOTIFY hit', $data );
+
+            $order_id   = isset( $data['orderReferenceCode'] ) ? (int) $data['orderReferenceCode'] : 0;
+            $payment_id = isset( $data['paymentId'] ) ? (string) $data['paymentId'] : '';
+
+            $order = null;
+            if ( $order_id ) {
+                $order = wc_get_order( $order_id );
+            }
+            if ( ! $order && $payment_id ) {
+                $orders = wc_get_orders(
+                    array(
+                        'limit'      => 1,
+                        'meta_key'   => '_pf_mz_payment_id',
+                        'meta_value' => $payment_id,
+                    )
+                );
+                if ( $orders ) {
+                    $order = $orders[0];
+                }
+            }
+
+            if ( ! $order ) {
+                status_header( 400 );
+                echo 'order not found';
+                exit;
+            }
+
+            if ( $payment_id ) {
+                $this->update_order_from_state( $order, $payment_id, $cfg );
+                $order->add_order_note( 'Muzapay: notify zpracovan' );
+            }
+
+            status_header( 200 );
+            echo 'OK';
             exit;
         }
 
